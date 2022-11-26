@@ -1,0 +1,9 @@
+venv/
+env/
+.venv/
+*/.pytest_cache/*
+*/.hypothesis/*
+.git/
+idea/
+catboost_info/
+__pycache__/

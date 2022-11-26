@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  database:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=dvr
+      - POSTGRES_USER=dvr
+      - POSTGRES_PASSWORD=dvr
+    ports:
+      - "5432:5432"

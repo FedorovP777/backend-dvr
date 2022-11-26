@@ -1,0 +1,79 @@
+image: python:3.11-alpine
+
+stages:
+  - tests
+  - build
+
+# Change pip's cache directory to be inside the project directory since we can
+# only cache local items.
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Pip's cache doesn't store the python packages
+# https://pip.pypa.io/en/stable/topics/caching/
+#
+# If you want to also cache the installed packages, you have to install
+# them in a virtualenv and cache it as well.
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+test_web_framework:
+  stage: tests
+
+  script:
+    - python --version  # For debugging
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - python -m pytest -s ./web_framework
+
+test_app:
+  stage: tests
+  script:
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - pip freeze
+    - alembic upgrade head
+    - pip install pytest-tornasync
+    - python -m pytest -s ./app
+  services:
+    - postgres:12.2-alpine
+  variables:
+    DB_URL: 'postgresql://dvr:dvr@postgres:5432/dvr'
+    POSTGRES_DB: dvr
+    POSTGRES_USER: dvr
+    POSTGRES_PASSWORD: dvr
+    POSTGRES_HOST_AUTH_METHOD: trust
+
+
+
+build:
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:release
+    ENV: PROD
+  stage: build
+  when: manual
+  needs: [ ]
+  script:
+    - echo $IMAGE_TAG
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -f Dockerfile -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+  services:
+    - name: docker:19-dind
+      alias: docker
+      # in our experience although you'd assume this would be sufficient, this did
+      # nothing to prevent connection errors without `DOCKER_TLS_CERTDIR` being set
+      # to an empty string, and I would call that beyond mildly infuriating.
+      command: [ "--tls=false" ]
+  image: docker:19.03.12
