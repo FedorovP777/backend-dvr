@@ -1,0 +1,4 @@
+.hypothesis/
+venv/
+.idea/
+__pycache__/
